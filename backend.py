@@ -7,31 +7,34 @@ app = FastAPI()
 clients = set()
 
 # ======================================================
-# INITIAL NODE METADATA (edit freely)
+# NODE METADATA (shown in popup)
 # ======================================================
 nodes_meta = {
     "NODE_A": {
         "terminal_name": "Tracker A",
-        "channel_name": "BengaluruMesh"
+        "channel_name": "AssamMesh"
     },
     "NODE_B": {
         "terminal_name": "Tracker B",
-        "channel_name": "BengaluruMesh"
+        "channel_name": "AssamMesh"
     }
 }
 
 # ======================================================
-# INITIAL POSITION SETUP (Bengaluru)
+# TEZPUR, ASSAM START LOCATIONS
 # ======================================================
 nodes = {
-    "NODE_A": {"lat": 12.9716, "lon": 77.5946, "angle": 0},
-    "NODE_B": {"lat": 12.9352, "lon": 77.6245, "angle": 0},
+    "NODE_A": {"lat": 26.6528, "lon": 92.7926, "angle": 0},  # Tezpur center
+    "NODE_B": {"lat": 26.7006, "lon": 92.8234, "angle": 0},  # Tezpur University
 }
 
-radius_a = 0.003
-radius_b = 0.004
+radius_a = 0.003   # ~300m loop
+radius_b = 0.004   # ~400m loop
 
 
+# ======================================================
+# WEBSOCKET BROADCAST
+# ======================================================
 async def broadcast(data):
     msg = json.dumps(data)
     for ws in list(clients):
@@ -42,21 +45,21 @@ async def broadcast(data):
 
 
 # ======================================================
-# SIMULATED MOVEMENT LOOP
+# MOCK SIMULATED MOVEMENT (TEZPUR)
 # ======================================================
 async def mock_node_movements():
     while True:
-        # Node A circular path
+        # Node A
         nodes["NODE_A"]["angle"] += 0.05
-        nodes["NODE_A"]["lat"] = 12.9716 + radius_a * math.sin(nodes["NODE_A"]["angle"])
-        nodes["NODE_A"]["lon"] = 77.5946 + radius_a * math.cos(nodes["NODE_A"]["angle"])
+        nodes["NODE_A"]["lat"] = 26.6528 + radius_a * math.sin(nodes["NODE_A"]["angle"])
+        nodes["NODE_A"]["lon"] = 92.7926 + radius_a * math.cos(nodes["NODE_A"]["angle"])
 
-        # Node B circular path
+        # Node B
         nodes["NODE_B"]["angle"] += 0.03
-        nodes["NODE_B"]["lat"] = 12.9352 + radius_b * math.sin(nodes["NODE_B"]["angle"])
-        nodes["NODE_B"]["lon"] = 77.6245 + radius_b * math.cos(nodes["NODE_B"]["angle"])
+        nodes["NODE_B"]["lat"] = 26.7006 + radius_b * math.sin(nodes["NODE_B"]["angle"])
+        nodes["NODE_B"]["lon"] = 92.8234 + radius_b * math.cos(nodes["NODE_B"]["angle"])
 
-        # Broadcast with terminal + channel name
+        # Broadcast updates
         for node_id in nodes:
             await broadcast({
                 "node_id": node_id,
@@ -75,46 +78,15 @@ async def startup_event():
 
 
 # ======================================================
-# REAL MESHTASTIC MODE (commented)
-# ======================================================
-"""
-import meshtastic.serial_interface
-
-interface = meshtastic.serial_interface.SerialInterface("/dev/tty.usbmodemXXXX")
-
-def on_receive(packet, *_):
-    decoded = packet.get("decoded", {})
-    if "position" in decoded:
-        pos = decoded["position"]
-        node_id = packet.get("fromId")
-
-        # real metadata
-        term = decoded["user"]["longName"]
-        chan = decoded["channel"]
-
-        data = {
-            "node_id": node_id,
-            "terminal_name": term,
-            "channel_name": chan,
-            "lat": pos["latitude"],
-            "lon": pos["longitude"]
-        }
-
-        asyncio.get_event_loop().create_task(broadcast(data))
-
-interface.pub.subscribe(on_receive, "meshtastic.receive")
-"""
-
-
-# ======================================================
 # WEBSOCKET ENDPOINT
 # ======================================================
 @app.websocket("/ws")
 async def ws_endpoint(ws: WebSocket):
     await ws.accept()
     clients.add(ws)
+
     try:
         while True:
-            await ws.receive_text()
+            await ws.receive_text()  # keep connection open
     except:
         clients.remove(ws)
